@@ -1,11 +1,13 @@
 <script>
   import * as d3 from "d3";
   import { onMount } from "svelte";
+  import { each } from "svelte/internal";
 
-  let data = []; //store the whole csv
+  let data = []; //store the csv for single plot
+  let wholedata = []; // store whole data for allchart
   let inputCounty = "San Diego"; //store the input county name for the user
   let selectedData = []; //extract the county value from the whole csv
-  let countyMap = new Map();
+  let countyData = new Map();
 
   onMount(async () => {
     data = await d3.csv("./police_poplulation1.csv", (d) => ({
@@ -17,39 +19,36 @@
       ),
     }));
 
+    console.log("all data", data);
     console.log("load csv success");
 
     // highlightChartData();  // Ensure initial data is loaded for default county
 
-    allChart(data);
+    allChart();
   });
 
-  function allChart(data) {
+  function allChart() {
     // init all county data
+    console.log("here");
     data.forEach((d) => {
       const yearlyData = Object.entries(d)
         .filter(([key, _]) => key !== "county_name")
         .map(([year, value]) => {
-          //   console.log(`Year: ${year}, Value: ${value}`); // Log each year and its corresponding value
           return {
-            value, // Convert value to number
+            value, 
           };
         });
 
-      // console.log(`---County: ${d.county_name}, Yearly Data: `, yearlyData); // Log the county name and its processed data
       countyMap.set(d.county_name, d.yearlyData);
-      console.log(`---County: ${d.county_name}, Yearly Data: `, yearlyData); // Log the county name and its processed data
-
+      console.log(`---County: ${d.county_name}, Yearly Data: `, yearlyData); 
     });
 
-    // console.log("Data for chart:", countyMap);
-
-    drawAllCounty(data);
+    drawAllCounty();
   }
 
-  function drawAllCounty(data) {
+  function drawAllCounty() {
     //draw all county line
-    const svg = d3.select("#your-svg-element");
+    const svg = d3.select("all_svg");
     const margin = { top: 20, right: 30, bottom: 30, left: 40 },
       width = 960 - margin.left - margin.right,
       height = 500 - margin.top - margin.bottom;
