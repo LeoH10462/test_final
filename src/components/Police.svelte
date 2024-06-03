@@ -4,8 +4,8 @@
   import { each } from "svelte/internal";
 
   let data = []; //store the csv for single plot
-  let wholedata = []; // store whole data for allchart
-  let inputCounty = "San Diego"; //store the input county name for the user
+  // let wholedata = []; // store whole data for allchart
+  let inputCounty = ""; //store the input county name for the user
   let selectedData = []; //extract the county value from the whole csv
   let countyData = new Map();
 
@@ -22,64 +22,75 @@
     console.log("all data", data);
     console.log("load csv success");
 
-    // highlightChartData();  // Ensure initial data is loaded for default county
-
-    allChart(data);
+    if (inputCounty) {
+      highlightChartData();  // Ensure initial data is loaded for default county
+    } else {
+      allChart();
+    }
   });
 
-  function allChart(dataArray) {
-    dataArray.forEach(d => {
-    countyData.set(d.county_name, Object.values(d.data));
+  function allChart() {
+    data.forEach((d) => {
+      const yearlyData = Object.entries(d.data).map(([year, value]) => ({
+        year: +year,
+        value,
+      }));
+      countyData.set(d.county_name, yearlyData);
     });
-    // console.log("Processed county data", countyData);
 
-    drawAllCounty();
+    console.log("Processed county data", countyData);
+    drawAllCounty(countyData);
   }
 
-  function drawAllCounty() {
+  function drawAllCounty(countyData) {
     //draw all county line
-    console.log("Drawing all counties");
+    const margin = { top: 20, right: 30, bottom: 50, left: 60 }; // Adjusted for label space
+    const width = 990 - margin.left - margin.right;
+    const height = 551 - margin.top - margin.bottom;
 
-    const svg = d3.select("all_svg");
-    const margin = { top: 20, right: 30, bottom: 30, left: 40 },
-      width = 960 - margin.left - margin.right,
-      height = 500 - margin.top - margin.bottom;
+    const svg = d3
+      .select("#chart")
+      .attr("width", width + margin.left + margin.right)
+      .attr("height", height + margin.top + margin.bottom)
+      .append("g")
+      .attr("transform", `translate(${margin.left}, ${margin.top})`);
 
-    const x = d3
-      .scaleBand()
-      .range([0, width])
-      .domain(data.map((d) => d.yearlyData)) // Assuming 'year' is the property
-      .padding(0.1);
+    // Define scales
+    const x = d3.scaleLinear().domain([2013, 2022]).range([0, 900]);
 
     const y = d3
       .scaleLinear()
-      .range([height, 0])
-      .domain([0, d3.max(data, (d) => d.value)]); // Assuming 'value' is the property
+      .domain([0, d3.max([...countyData.values()].flat(), (d) => d.value)])
+      .range([480, 0]);
 
-    const g = svg
+    // Define the line
+    const line = d3
+      .line()
+      .x((d) => x(d.year))
+      .y((d) => y(d.value));
+
+    countyData.forEach((values, name) => {
+      svg
+        .append("path")
+        .datum(values)
+        .attr("fill", "none")
+        .attr("stroke", "steelblue")
+        .attr("stroke-width", 1.5)
+        .attr("d", line);
+    });
+
+    // Add the x-axis
+    const xAxis = svg
       .append("g")
-      .attr("transform", `translate(${margin.left},${margin.top})`);
+      .attr("transform", `translate(0, ${height})`)
+      .call(d3.axisBottom(x).tickFormat(d3.format("d"))); // Formatting years as integers
 
-    g.append("g")
-      .attr("class", "x axis")
-      .attr("transform", `translate(0,${height})`)
-      .call(d3.axisBottom(x));
-
-    g.append("g").attr("class", "y axis").call(d3.axisLeft(y));
-
-    g.selectAll(".bar")
-      .data(data)
-      .enter()
-      .append("rect")
-      .attr("class", "bar")
-      .attr("x", (d) => x(d.year))
-      .attr("width", x.bandwidth())
-      .attr("y", (d) => y(d.value))
-      .attr("height", (d) => height - y(d.value));
+    // Add the y-axis
+    const yAxis = svg.append("g").call(d3.axisLeft(y));
   }
 
   function highlightChartData() {
-    const match = data.find((d) => d.county_name === inputCounty);
+    const match = data.find((d) => d.county_name.toLowerCase() === inputCounty);
     if (match) {
       selectedData = Object.entries(match.data).map(([year, value]) => ({
         year,
@@ -132,13 +143,15 @@
       .attr("stroke-width", 2)
       .attr("d", line);
   }
+
+  $: highlightChartData();
 </script>
 
-<input type="text" bind:value={inputCounty} placeholder="Enter county name" />
+<input type="text" bind:value={inputCounty} placeholder="Ex:San Diego" />
 <button on:click={highlightChartData}>Show Data</button>
 
 <svg id="chart" width="750" height="500"></svg>
-
+<!-- <svg bind:this={svg} id='chart'></svg> -->
 <p>Hello police data is below11</p>
 
 <style>
@@ -153,6 +166,6 @@
   svg {
     margin-top: 20px;
     background-color: #f4f4f4;
-    border: 1px solid #ddd;
+    border: 1px solid #d1c5c5;
   }
 </style>
